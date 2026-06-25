@@ -82,8 +82,10 @@ async function getParties() {
   try {
     const response = await fetch(PARTY_API);
     const partiesData = await response.json();
+
+    const newParties = [];
     for (const party of partiesData.data) {
-      parties.push(
+      newParties.push(
         new Party(
           party.id,
           party.name,
@@ -93,6 +95,9 @@ async function getParties() {
         ),
       );
     }
+
+    parties = newParties;
+    guests = new Map();
   } catch (error) {
     console.log("Failed to fetch parties:", error);
   }
@@ -253,6 +258,89 @@ function GuestListItem(guest) {
   return $li;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// =============== NEW CODE ===============
+async function createParty(party) {
+  try {
+    const response = await fetch(PARTY_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(party),
+    });
+    return true;
+  } catch (error) {
+    console.log("Failed to post to events:", error);
+    return false;
+  }
+}
+
+async function deleteSelected() {
+  try {
+    const response = await fetch(`${PARTY_API}/${selectedParty.id}`, {
+      method: "DELETE",
+    });
+
+    await getParties();
+    selectedParty = null;
+    render();
+  } catch (error) {
+    concole.log("Failed to delete event:", error);
+  }
+}
+
+// === Component ===
+function createForm() {
+  const $form = document.createElement("form");
+  FormData.id = "createForm";
+  $form.innerHTML = `
+    <label for="name">Name:</label>
+    <input type="text" name="name" id="name" placeholder="name" required />
+    
+    <label for="description">Description:</label>
+    <input type="text" name="description" id="description" placeholder="description" required />
+    
+    <label for="date">Date:</label>
+    <input type="datetime-local" name="date" id="date" required />
+
+    <label for="location">Location:</label>
+    <input type="text" name="location" id="location" placeholder="location" required />
+    
+    <button type="submit">Add party</button>
+  `;
+
+  $form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData($form);
+    const wasCreated = await createParty({
+      name: formData.get("name"),
+      description: formData.get("description"),
+      date: new Date(formData.get("date")).toISOString(),
+      location: formData.get("location"),
+    });
+
+    if (wasCreated) {
+      await getParties();
+      render();
+    }
+  });
+
+  return $form;
+}
+
+function deleteButton() {
+  if (!selectedParty) {
+    const $p = document.createElement("p");
+    return $p;
+  }
+
+  const $button = document.createElement("button");
+  $button.innerHTML = "Delete party";
+  $button.addEventListener("click", deleteSelected);
+  return $button;
+}
+
 // === Render ===
 function render() {
   const $app = document.querySelector("#app");
@@ -262,17 +350,23 @@ function render() {
       <section>
         <h2>Upcoming Parties</h2>
         <PartyList></PartyList>
+        <hr />
+        <h3>Add a new party</h3>
+        <createForm></createForm>
       </section>
       <section id="selected">
         <h2>Party Details</h2>
         <PartyDetails></PartyDetails>
         <GuestList></GuestList>
+        <deleteButton></deleteButton>
       </section>
     </main>
   `;
+  $app.querySelector("createForm").replaceWith(createForm());
   $app.querySelector("PartyList").replaceWith(PartyList());
   $app.querySelector("PartyDetails").replaceWith(PartyDetails());
   $app.querySelector("GuestList").replaceWith(GuestList());
+  $app.querySelector("deleteButton").replaceWith(deleteButton());
 }
 
 async function init() {
