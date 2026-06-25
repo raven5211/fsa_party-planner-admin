@@ -337,7 +337,11 @@ function deleteButton() {
 
   const $button = document.createElement("button");
   $button.innerHTML = "Delete party";
-  $button.addEventListener("click", deleteSelected);
+  $button.addEventListener("click", () => {
+    if (confirm("Are you sure you want to delete this Party?")) {
+      deleteSelected();
+    }
+  });
   return $button;
 }
 
